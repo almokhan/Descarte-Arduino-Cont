@@ -1,76 +1,53 @@
-int seletorPeca = 12;
-int portinhola = 10;//Define em que porta a portinhola estara conectada
-int sensor = 13; //Define em que porta o sensor sera instaldo (Por enquanto ele é considerado um botão)
-int time = 0;//Variavel usada para fazer os TimeOut
-int atvSeletor = 11;
+int rele1 = 13;      // Pino do relé
+int sensorObj = 12;      //Pino do sensor de Objetos
+int sensorPort = 11;      //Pino do sensor da porta
+String comando = ""; // Buffer para armazenar a string recebida
 
 void setup() {
- pinMode(sensor, INPUT); //Declara a porta do sensor como de entrada de dados
- pinMode(seletorPeca,INPUT);//Declara a porta do seletor de peça
- pinMode(portinhola, OUTPUT);//Declara a porta da portinhola
- Serial.begin(9600); //Configura a taxa de Bauds entre o Arduino e o PC
+  pinMode(rele1, OUTPUT);
+  pinMode(sensorObj, INPUT);
+  pinMode(sensorPort, INPUT);
+  Serial.begin(9600);
+}
+
+void descarte(){  //Responsavel por um descarte seguro
+  digitalWrite(rele1, HIGH);
+  while (digitalRead(sensorPort) == LOW){ //Trava o programa até a Portinhola abrir
+    digitalWrite(rele1, HIGH);
+  }
+  while(digitalRead(sensorObj) == LOW){  //Trava o programa até o sensor registra algo
+    delay(8);  //Serve para evitar um possivel bouncing
+  }
+  while(digitalRead(sensorObj) == HIGH){  //Trava o programa até o sensor ser liberado
+    delay(8);
+  }
+  delay(2000); //Tempo de segurança para a portinhola fechar
+  digitalWrite(rele1, LOW);
+  while(digitalRead(sensorPort) == HIGH){ //Trava o programa até a portinhola ser fechada
+    digitalWrite(rele1, LOW);
+  Serial.write(1);
+  }
+
 }
 
 void loop() {
- Serial.println("Tentando comunicação com PC...");
- Serial.println(1);// O Arduino envia o numero 1, e se recebe-lo de volta, ele confirma a comunicação
-
-  if (Serial.parseInt() == 1){//Recebe o resultado da tentativa de comunicação
-
-  time = millis();
-
-    digitalWrite(portinhola, HIGH);//Abre a portinhola
-
-    Serial.println("Testando sensor, aproxime algo do sensor...");
-    while(digitalRead(sensor) != HIGH){//Executa o teste do sensor
-      if (millis() - time > 30000){//Se o sensor não for detectado em menos de 30 segundos o Arduino reinicia
-
-        Serial.println("Não foi possivel efetuar comunicação com o sensor, fechando portinhola");
-        delay(5000);//Tempo de segurança para o operador
-        digitalWrite(portinhola, LOW);//Fecha a portinhola
-        Serial.println(5);//Avisa o PC que o Arduino sera reiniciado
-        Serial.print("Reiniciando o Arduino em 5 segundos");
-        delay(5000);
-         asm volatile ("  jmp 0");//Reinicia o Arduino
-      }
+ 
+  if (Serial.available() > 0) {
+    // Lê o próximo caractere
+    char recebido = Serial.read();
+    
+    comando += recebido;
+    
+    // Verifica se o comando é completo
+    if (comando.endsWith(">")) {
+      String comandoLimpo = comando;
+      comandoLimpo.remove(comandoLimpo.length() - 1); // Remove '>'
+      if (comandoLimpo == "<rele,1") {
+        descarte();
+      } else if (comandoLimpo == "<rele,0") {
+      } else {
+      }     
+      comando = "";
     }
-    time = millis();
-    while(digitalRead(sensor) != LOW){// Verifica se nada esta obstruindo o sensor
-        if(millis() - time == 12000){
-          Serial.println("Por favor desobstrua o sensor");
-          delay(1);
-        }
-    }
-    Serial.println("Sensor detectado, tudo Ok");
-    delay(5000);
-      digitalWrite(portinhola, LOW);
-    while(1 < 2){//Loop eterno para manter o Arduino executando apenas esse escopo
-    while(Serial.parseInt() != 2){//Loop até o PC enviar pedido para verificar o sensor
-    }
-    digitalWrite(portinhola, HIGH);//Abre a portinhola
-    Serial.println("Aguradando descarte..");
-
-    time = millis();
-    while(digitalRead(sensor) != HIGH){//Agurada o cabo passar na frente do sensor
-      if(millis() - time == 20000){
-        Serial.println("Descarte não foi feito, verifique o sensor");
-        delay(1);
-        }
-    }
-    time = millis();
-    while(digitalRead(sensor) != LOW){
-      if(millis() - time == 20000){
-        Serial.println("Descarte não foi feito, verifique se algo obstrui o sensor");
-        delay(1);
-        }
-    }
-    Serial.println("Descarte feito");
-    Serial.println(2);//Envia sinal para o PC após o descarte ser feito
-    delay(5000);//Tempo de segurança para o operador
-    digitalWrite(portinhola, LOW);//Fecha a portinhola
-  }
-  }
-  else{
-    Serial.println("Erro, não foi possivel efetuar a comunicação com o PC, verifique se o Baud Rate é 9600");
   }
 }
